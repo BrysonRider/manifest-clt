@@ -681,6 +681,10 @@
         <input type="checkbox" id="dj-usb" required />
         <span>I will bring my own USB, formatted for Rekordbox, with this event's genre tracks already prepared.</span>
       </label>
+      <label class="dj-check">
+        <input type="checkbox" id="dj-ig" required />
+        <span>I follow <a href="https://www.instagram.com/manifest.clt/" target="_blank" rel="noopener">@manifest.clt</a> on Instagram.</span>
+      </label>
       <button type="submit" class="btn primary dj-submit" id="dj-submit-btn">Lock In Your Slot</button>
       <div class="dj-status" id="dj-status"></div>
     </form>
@@ -847,6 +851,7 @@
     body.set("phone", document.getElementById("dj-phone").value.trim());
     body.set("cdjExperience", document.getElementById("dj-cdj").checked);
     body.set("hasRekordboxUSB", document.getElementById("dj-usb").checked);
+    body.set("followsInstagram", document.getElementById("dj-ig").checked);
 
     try {
       // no-cors: Apps Script Web Apps don't send CORS headers either, so the response is opaque.
