@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MANIFEST — Signal (Direction 01: Glitch HUD)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Arvo:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --void: #0a0a0a;
+    --void-2: #121212;
+    --ink: #eeeeee;
+    --ink-dim: #8a8a8a;
+    --line: #2a2a2a;
+    --signal: #9d4dff;
+    --signal-dim: #4a1f8f;
+    --ember: #ff5a1f;
+    --ember-dim: #7a2c0f;
+    --chrome-1: #f4f4f4;
+    --chrome-2: #9a9a9a;
+    --chrome-3: #4a4a4a;
+  }
+
+  .slab { font-family: "Arvo", serif; }
+
+  .chrome-text {
+    font-family: "Arvo", serif;
+    background: linear-gradient(180deg, var(--chrome-1) 0%, var(--chrome-2) 45%, var(--chrome-3) 55%, var(--chrome-1) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--void);
+    color: var(--ink);
+    font-family: "Rajdhani", sans-serif;
+    overflow-x: hidden;
+  }
+
+  ::selection { background: var(--signal); color: var(--void); }
+
+  .mono { font-family: "IBM Plex Mono", monospace; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--signal);
+  }
+
+  /* ---------- scanline + grain overlay ---------- */
+  .scanlines {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.025) 0px,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: overlay;
+  }
+  .vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(0,0,0,0.65) 100%);
+  }
+
+  /* ---------- nav ---------- */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    background: linear-gradient(to bottom, rgba(10,10,10,0.92), rgba(10,10,10,0));
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand svg { width: 30px; height: 30px; }
+  .brand-text {
+    font-family: "Arvo", serif;
+    font-weight: 700;
+    letter-spacing: 1px;
+    font-size: 18px;
+    text-transform: uppercase;
+  }
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .nav-ig {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    color: var(--signal);
+    border: 1px solid var(--signal);
+    border-radius: 2px;
+  }
+  .nav-ig:hover { background: var(--signal); color: #0a0a0a; }
+  .footer-ig { display: inline-flex; align-items: center; gap: 5px; }
+  nav .readout {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--signal);
+    border: 1px solid var(--signal-dim);
+    padding: 6px 12px;
+    min-width: 92px;
+    text-align: center;
+  }
+  nav .readout span.label {
+    display: block;
+    color: var(--ink-dim);
+    font-size: 9px;
+    letter-spacing: 3px;
+    margin-bottom: 2px;
+  }
+
+  /* ---------- hero ---------- */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 140px 32px 80px;
+    border-bottom: 1px solid var(--line);
+    overflow: hidden;
+  }
+  canvas#field {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 1180px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .hero h1 {
+    font-family: "Arvo", serif;
+    font-size: clamp(48px, 8vw, 104px);
+    font-weight: 700;
+    line-height: 0.96;
+    text-transform: uppercase;
+    letter-spacing: -1px;
+    margin-top: 18px;
+    max-width: 900px;
+  }
+  .hero h1 .glitch {
+    position: relative;
+    color: var(--signal);
+    display: inline-block;
+  }
+  .hero h1 .glitch::before,
+  .hero h1 .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    color: var(--signal);
+    background: var(--void);
+    overflow: hidden;
+    opacity: 0;
+  }
+  .hero h1 .glitch:hover::before {
+    opacity: 0.85;
+    clip-path: inset(10% 0 60% 0);
+    transform: translate(-4px, -2px);
+    animation: glitchTop 0.6s steps(2, end) infinite;
+  }
+  .hero h1 .glitch:hover::after {
+    opacity: 0.85;
+    clip-path: inset(60% 0 5% 0);
+    transform: translate(4px, 2px);
+    animation: glitchBottom 0.5s steps(2, end) infinite;
+    color: var(--ink);
+  }
+  @keyframes glitchTop {
+    0% { transform: translate(-4px, -2px); }
+    50% { transform: translate(3px, -1px); }
+    100% { transform: translate(-4px, -2px); }
+  }
+  @keyframes glitchBottom {
+    0% { transform: translate(4px, 2px); }
+    50% { transform: translate(-3px, 1px); }
+    100% { transform: translate(4px, 2px); }
+  }
+
+  .hero p.sub {
+    margin-top: 26px;
+    max-width: 560px;
+    font-size: 18px;
+    color: #c6c6c6;
+    line-height: 1.5;
+    font-weight: 500;
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 16px;
+    margin-top: 44px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 15px 26px;
+    border: 1px solid var(--signal);
+    color: var(--ink);
+    background: transparent;
+    transition: background 0.15s, color 0.15s;
+    cursor: pointer;
+  }
+  .btn.primary { background: var(--signal); color: var(--void); }
+  .btn.primary:hover { background: transparent; color: var(--signal); }
+  .btn:not(.primary):hover { background: var(--signal); color: var(--void); }
+
+  .hud-corner {
+    position: absolute;
+    bottom: 40px;
+    right: 32px;
+    z-index: 2;
+    text-align: right;
+    font-family: "IBM Plex Mono", monospace;
+  }
+  .hud-corner .big-readout {
+    font-size: 15vw;
+    line-height: 0.9;
+    color: var(--signal);
+    opacity: 0.14;
+    font-weight: 600;
+    user-select: none;
+  }
+  @media (max-width: 760px) {
+    .hud-corner { display: none; }
+  }
+
+  /* ---------- section shell ---------- */
+  section {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 90px 32px;
+    border-bottom: 1px solid var(--line);
+  }
+  .section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 44px;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .section-head h2 {
+    font-family: "Arvo", serif;
+    font-size: clamp(28px, 4vw, 42px);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .section-head .idx {
+    font-family: "IBM Plex Mono", monospace;
+    color: var(--ink-dim);
+    font-size: 12px;
+    letter-spacing: 2px;
+  }
+
+  /* ---------- reel ---------- */
+  .reel-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .placeholder {
+    position: relative;
+    aspect-ratio: 4/5;
+    background: repeating-linear-gradient(
+      135deg,
+      var(--void-2) 0px,
+      var(--void-2) 8px,
+      #181818 8px,
+      #181818 16px
+    );
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: flex-end;
+    padding: 10px;
+  }
+  .placeholder span {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--ink-dim);
+    line-height: 1.4;
+  }
+  @media (max-width: 760px) {
+    .reel-strip { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ---------- events ---------- */
+  .event-row {
+    display: grid;
+    grid-template-columns: 90px 1fr auto;
+    align-items: center;
+    gap: 24px;
+    padding: 22px 0;
+    border-top: 1px solid var(--line);
+  }
+  .event-row:first-of-type { border-top: 1px solid var(--line); }
+  .event-date {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--signal);
+    letter-spacing: 1px;
+  }
+  .event-date .day { display: block; font-size: 28px; color: var(--ink); font-weight: 600; }
+  .event-name {
+    font-size: 22px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .event-venue {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-dim);
+    margin-top: 4px;
+    letter-spacing: 1px;
+  }
+
+  /* ---------- social ---------- */
+  .social-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .social-grid .placeholder { aspect-ratio: 1/1; }
+  @media (max-width: 760px) {
+    .social-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ---------- dj signup ---------- */
+  .dj-sub {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: #c6c6c6;
+    letter-spacing: 0.5px;
+    max-width: 560px;
+    line-height: 1.7;
+    margin-bottom: 28px;
+  }
+  .dj-form {
+    max-width: 560px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .dj-field label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    margin-bottom: 6px;
+  }
+  .dj-field input[type="text"],
+  .dj-field input[type="email"],
+  .dj-field input[type="tel"] {
+    width: 100%;
+    background: var(--void-2);
+    border: 1px solid var(--signal-dim);
+    outline: none;
+    color: var(--ink);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 14px;
+    padding: 14px 16px;
+    letter-spacing: 0.5px;
+  }
+  .dj-field input:focus { border-color: var(--signal); }
+  .dj-field input::placeholder { color: #555; }
+  .dj-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border: 1px solid var(--line);
+    padding: 14px 16px;
+    cursor: pointer;
+  }
+  .dj-check input {
+    margin-top: 3px;
+    accent-color: var(--signal);
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+  }
+  .dj-check span {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #c6c6c6;
+    letter-spacing: 0.3px;
+  }
+  .dj-submit {
+    margin-top: 8px;
+    align-self: flex-start;
+  }
+  .dj-submit:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .dj-status {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    margin-top: 16px;
+    display: none;
+  }
+  .dj-status.ok { color: var(--signal); display: block; }
+  .dj-status.err { color: #ff5d5d; display: block; }
+
+  /* ---------- signup ---------- */
+  .signup-box {
+    display: flex;
+    gap: 0;
+    max-width: 640px;
+    border: 1px solid var(--signal-dim);
+  }
+  .signup-box input {
+    flex: 1;
+    background: var(--void-2);
+    border: none;
+    outline: none;
+    color: var(--ink);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 14px;
+    padding: 18px 20px;
+    letter-spacing: 1px;
+  }
+  .signup-box input::placeholder { color: var(--ink-dim); }
+  .signup-box button {
+    border: none;
+    background: var(--signal);
+    color: var(--void);
+    font-family: "IBM Plex Mono", monospace;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-size: 12px;
+    padding: 0 26px;
+    cursor: pointer;
+  }
+  .signup-note {
+    margin-top: 16px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-dim);
+    letter-spacing: 1px;
+  }
+
+  /* ---------- merch ---------- */
+  .merch-block {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: 40px;
+    align-items: center;
+  }
+  .merch-block .placeholder {
+    aspect-ratio: 4/5;
+    filter: grayscale(1);
+  }
+  .merch-copy h3 {
+    font-size: 30px;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .merch-copy p {
+    color: #c6c6c6;
+    line-height: 1.6;
+    max-width: 440px;
+  }
+  .merch-tag {
+    display: inline-block;
+    margin-top: 20px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--signal);
+    border: 1px solid var(--signal-dim);
+    padding: 8px 14px;
+  }
+  @media (max-width: 760px) {
+    .merch-block { grid-template-columns: 1fr; }
+  }
+
+  footer {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 32px 60px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--ink-dim);
+  }
+  footer a {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--signal);
+    text-decoration: none;
+  }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<nav>
+  <div class="brand">
+    <span class="brand-text">Manifest</span>
+  </div>
+  <div class="nav-right">
+    <a href="https://www.instagram.com/manifest.clt/" target="_blank" rel="noopener" class="nav-ig" aria-label="Follow @manifest.clt on Instagram" title="@manifest.clt on Instagram">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" stroke="none"/></svg>
+    </a>
+    <div class="readout mono" id="nav-readout">
+      <span class="label">SYNC</span>
+      <span id="nav-readout-val">000</span>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <canvas id="field"></canvas>
+  <div class="hero-content">
+    <svg viewBox="0 0 200 125" style="width:min(260px, 40vw); margin-bottom:16px; filter: drop-shadow(0 0 14px rgba(157,77,255,0.35));" fill="none">
+      <circle cx="100" cy="21" r="12" stroke="var(--signal)" stroke-width="3"/>
+      <circle cx="100" cy="21" r="3.5" fill="var(--signal)"/>
+      <g stroke="var(--signal)" stroke-width="2.2" stroke-linecap="round">
+        <line x1="78.0" y1="92.0" x2="44.0" y2="92.0"/>
+        <line x1="78.3" y1="88.2" x2="55.7" y2="84.2"/>
+        <line x1="79.3" y1="84.5" x2="47.4" y2="72.8"/>
+        <line x1="80.9" y1="81.0" x2="61.0" y2="69.5"/>
+        <line x1="83.1" y1="77.9" x2="57.1" y2="56.0"/>
+        <line x1="85.9" y1="75.1" x2="71.1" y2="57.5"/>
+        <line x1="89.0" y1="72.9" x2="72.0" y2="43.5"/>
+        <line x1="92.5" y1="71.3" x2="84.6" y2="49.7"/>
+        <line x1="96.2" y1="70.3" x2="90.3" y2="36.9"/>
+        <line x1="100.0" y1="70.0" x2="100.0" y2="47.0"/>
+        <line x1="103.8" y1="70.3" x2="109.7" y2="36.9"/>
+        <line x1="107.5" y1="71.3" x2="115.4" y2="49.7"/>
+        <line x1="111.0" y1="72.9" x2="128.0" y2="43.5"/>
+        <line x1="114.1" y1="75.1" x2="128.9" y2="57.5"/>
+        <line x1="116.9" y1="77.9" x2="142.9" y2="56.0"/>
+        <line x1="119.1" y1="81.0" x2="139.0" y2="69.5"/>
+        <line x1="120.7" y1="84.5" x2="152.6" y2="72.8"/>
+        <line x1="121.7" y1="88.2" x2="144.3" y2="84.2"/>
+        <line x1="122.0" y1="92.0" x2="156.0" y2="92.0"/>
+      </g>
+      <polygon points="100,70 72,112 128,112" stroke="var(--signal)" stroke-width="3"/>
+      <g fill="var(--signal)">
+        <path d="M62,53 L63.25,55.75 L67,58 L63.25,60.25 L62,63 L60.75,60.25 L57,58 L60.75,55.75 Z"/>
+        <path d="M138,53 L139.25,55.75 L143,58 L139.25,60.25 L138,63 L136.75,60.25 L133,58 L136.75,55.75 Z"/>
+        <circle cx="80" cy="45" r="1.8"/>
+        <circle cx="120" cy="45" r="1.8"/>
+        <circle cx="70" cy="80" r="1.5"/>
+        <circle cx="130" cy="80" r="1.5"/>
+      </g>
+    </svg>
+    <div class="eyebrow">STATUS :: TRANSMITTING — CHARLOTTE, NC</div>
+    <h1><span class="chrome-text">The frequency</span><br/><span class="glitch" data-text="is real.">is real.</span></h1>
+    <p class="sub">This is how we manifest.</p>
+    <div class="cta-row">
+      <a href="#events" class="btn primary">See Upcoming Events</a>
+      <a href="#signup" class="btn">Get In The Loop</a>
+    </div>
+  </div>
+  <div class="hud-corner mono">
+    <div class="big-readout" id="hero-readout">000</div>
+  </div>
+</section>
+
+<section id="events">
+  <div class="section-head">
+    <h2>Upcoming</h2>
+    <span class="idx mono">[ 01 / EVENTS ]</span>
+  </div>
+
+  <div class="event-row">
+    <div class="event-date mono"><span class="day">18</span>OCT</div>
+    <div>
+      <div class="event-name">Manifest — Warehouse 003</div>
+      <div class="event-venue">VENUE TBD · CHARLOTTE, NC · DOORS 10PM</div>
+    </div>
+    <a href="#" class="btn primary">RSVP</a>
+  </div>
+  <div class="event-row">
+    <div class="event-date mono"><span class="day">02</span>NOV</div>
+    <div>
+      <div class="event-name">Low End Session</div>
+      <div class="event-venue">VENUE TBD · CHARLOTTE, NC · DOORS 9PM</div>
+    </div>
+    <a href="#" class="btn primary">RSVP</a>
+  </div>
+  <div class="event-row">
+    <div class="event-date mono"><span class="day">21</span>NOV</div>
+    <div>
+      <div class="event-name">Manifest B2B — Guest TBA</div>
+      <div class="event-venue">VENUE TBD · CHARLOTTE, NC · DOORS 10PM</div>
+    </div>
+    <a href="#" class="btn primary">RSVP</a>
+  </div>
+</section>
+
+<section id="dj-signup">
+  <div class="section-head">
+    <h2>Open Decks</h2>
+    <span class="idx mono">[ 02 / APPLY TO SPIN ]</span>
+  </div>
+  <p class="dj-sub"><strong>Experienced DJs only.</strong> This is for DJs who have experience playing on CDJs and are comfortable performing without a laptop or controller. Submit your info below to enter. Once signups close, the lineup will be randomly selected. If you're chosen, your set time will be sent directly to your inbox before the lineup is announced publicly.</p>
+
+    <form class="dj-form" id="dj-signup-form">
+      <div class="dj-field">
+        <label for="dj-name">Name</label>
+        <input type="text" id="dj-name" name="name" placeholder="Your name" required />
+      </div>
+      <div class="dj-field">
+        <label for="dj-social">IG or TikTok Handle</label>
+        <input type="text" id="dj-social" name="social" placeholder="@yourhandle" required />
+      </div>
+      <div class="dj-field">
+        <label for="dj-email">Email</label>
+        <input type="email" id="dj-email" name="email" placeholder="you@email.com" required />
+      </div>
+      <div class="dj-field">
+        <label for="dj-phone">Phone Number</label>
+        <input type="tel" id="dj-phone" name="phone" placeholder="(704) 555-0100" required />
+      </div>
+      <label class="dj-check">
+        <input type="checkbox" id="dj-cdj" required />
+        <span>I have experience performing on professional CDJ setups (not just a laptop/controller).</span>
+      </label>
+      <label class="dj-check">
+        <input type="checkbox" id="dj-usb" required />
+        <span>I will bring my own USB, formatted for Rekordbox, with this event's genre tracks already prepared.</span>
+      </label>
+      <button type="submit" class="btn primary dj-submit" id="dj-submit-btn">Lock In Your Slot</button>
+      <div class="dj-status" id="dj-status"></div>
+    </form>
+</section>
+
+<section id="signup">
+  <div class="section-head">
+    <h2>Get In The Loop</h2>
+    <span class="idx mono">[ 03 / SIGNAL LIST ]</span>
+  </div>
+  <p class="sub" style="margin-bottom:28px;">Own your access. Dates drop here first, before the flyer ever hits a feed.</p>
+  <div class="signup-box">
+    <input type="text" placeholder="Email or phone number" />
+    <button type="button">Sync Me In</button>
+  </div>
+  <div class="signup-note">No spam. No resale lists. Unsubscribe whenever.</div>
+</section>
+
+<footer>
+  <span>Manifest — Music · Community · Creation</span>
+  <a href="https://www.instagram.com/manifest.clt/" target="_blank" rel="noopener" class="footer-ig">
+    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" stroke="none"/></svg>
+    Follow @manifest.clt
+  </a>
+  <span>Direction 01 — Glitch HUD — Exploration, unapproved</span>
+</footer>
+
+<script>
+  // ---------- HUD numeric readout: scrambles, occasionally locks an angel number ----------
+  const angelNumbers = ["111", "222", "333", "444", "777", "999"];
+  const navVal = document.getElementById("nav-readout-val");
+  const heroVal = document.getElementById("hero-readout");
+
+  function randomDigits() {
+    return String(Math.floor(Math.random() * 1000)).padStart(3, "0");
+  }
+
+  let lockedUntil = 0;
+  function tickReadout(el) {
+    const now = performance.now();
+    if (now < lockedUntil) return;
+    if (Math.random() < 0.07) {
+      const num = angelNumbers[Math.floor(Math.random() * angelNumbers.length)];
+      el.textContent = num;
+      lockedUntil = now + 1200;
+    } else {
+      el.textContent = randomDigits();
+    }
+  }
+  setInterval(() => { tickReadout(navVal); }, 140);
+
+  let heroLockedUntil = 0;
+  function tickHero() {
+    const now = performance.now();
+    if (now < heroLockedUntil) return;
+    if (Math.random() < 0.05) {
+      const num = angelNumbers[Math.floor(Math.random() * angelNumbers.length)];
+      heroVal.textContent = num;
+      heroLockedUntil = now + 1500;
+    } else {
+      heroVal.textContent = randomDigits();
+    }
+  }
+  setInterval(tickHero, 160);
+
+  // ---------- cursor-reactive particle / line field ----------
+  const canvas = document.getElementById("field");
+  const ctx = canvas.getContext("2d");
+  let w, h, particles = [];
+  const mouse = { x: -9999, y: -9999 };
+
+  function resize() {
+    w = canvas.width = canvas.parentElement.clientWidth;
+    h = canvas.height = canvas.parentElement.clientHeight;
+    const count = Math.floor((w * h) / 16000);
+    particles = Array.from({ length: count }, () => ({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3
+    }));
+  }
+  window.addEventListener("resize", resize);
+  canvas.parentElement.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+  });
+  canvas.parentElement.addEventListener("mouseleave", () => {
+    mouse.x = -9999;
+    mouse.y = -9999;
+  });
+
+  function step() {
+    ctx.clearRect(0, 0, w, h);
+    for (const p of particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0 || p.x > w) p.vx *= -1;
+      if (p.y < 0 || p.y > h) p.vy *= -1;
+
+      const dx = p.x - mouse.x;
+      const dy = p.y - mouse.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < 160) {
+        const force = (160 - dist) / 160;
+        p.x += (dx / dist) * force * 1.2;
+        p.y += (dy / dist) * force * 1.2;
+      }
+    }
+    for (let i = 0; i < particles.length; i++) {
+      const a = particles[i];
+      const da = Math.hypot(a.x - mouse.x, a.y - mouse.y);
+      if (da < 180) {
+        ctx.strokeStyle = `rgba(157,77,255,${0.5 - da / 360})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.stroke();
+      }
+      for (let j = i + 1; j < particles.length; j++) {
+        const b = particles[j];
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (d < 90) {
+          ctx.strokeStyle = `rgba(150,150,150,${0.12 - d / 900})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+      ctx.fillStyle = "rgba(230,230,230,0.6)";
+      ctx.fillRect(a.x, a.y, 1.6, 1.6);
+    }
+    requestAnimationFrame(step);
+  }
+
+  resize();
+  step();
+
+  // ---------- DJ signup -> Apps Script Web App (writes straight into the Signups sheet) ----------
+  // After deploying Code.gs as a Web App (Deploy > New deployment > Web app, execute as
+  // yourself, access "Anyone"), replace this with the printed /exec URL.
+  const DJ_SIGNUP_ENDPOINT = "https://script.google.com/macros/s/AKfycbxSCqLRLvvMRf9-Mc8ALJOixjXunwplNNWBrbL8gMzLcPYvw3OcGz4TtQPuaaNge-7gvQ/exec";
+  const CURRENT_EVENT_ID = "open-decks-2026-10-23";
+
+  const djForm = document.getElementById("dj-signup-form");
+  const djStatus = document.getElementById("dj-status");
+  const djSubmitBtn = document.getElementById("dj-submit-btn");
+
+  djForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    djSubmitBtn.disabled = true;
+    djStatus.className = "dj-status";
+    djStatus.textContent = "";
+
+    const body = new URLSearchParams();
+    body.set("eventId", CURRENT_EVENT_ID);
+    body.set("name", document.getElementById("dj-name").value.trim());
+    body.set("social", document.getElementById("dj-social").value.trim());
+    body.set("email", document.getElementById("dj-email").value.trim());
+    body.set("phone", document.getElementById("dj-phone").value.trim());
+    body.set("cdjExperience", document.getElementById("dj-cdj").checked);
+    body.set("hasRekordboxUSB", document.getElementById("dj-usb").checked);
+
+    try {
+      // no-cors: Apps Script Web Apps don't send CORS headers either, so the response is opaque.
+      // A thrown network error still means it failed; anything else is treated as success.
+      await fetch(DJ_SIGNUP_ENDPOINT, { method: "POST", mode: "no-cors", body });
+      djStatus.classList.add("ok");
+      djStatus.textContent = "You're in. Watch your inbox — if you're drawn, we'll send your set time before the flyer drops. Follow @manifest.clt so you don't miss it.";
+      djForm.reset();
+    } catch (err) {
+      djStatus.classList.add("err");
+      djStatus.textContent = "Signal dropped — that didn't go through. Try again in a second.";
+      djSubmitBtn.disabled = false;
+    }
+  });
+</script>
+
+</body>
+</html>
